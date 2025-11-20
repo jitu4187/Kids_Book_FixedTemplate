@@ -40,3 +40,35 @@ export type BookProjectDraft = {
   child: ChildProfile;
   dedication?: string;
 };
+
+export type TemplatePlaceholderPage = {
+  id: string;
+  /**
+   * Text content that can contain tokens such as {{kid_name}} or {{kid_image}}.
+   */
+  text: string;
+  /**
+   * Image slot placeholder string (typically {{kid_image}}).
+   */
+  image: string;
+};
+
+export type GeneratedImageAsset = {
+  id: string;
+  sceneId: string;
+  url: string;
+  prompt?: string;
+};
+
+export type AssembledBookPage = {
+  id: string;
+  text: string;
+  imageUrl: string;
+  prompt?: string;
+};
+
+export type AssembledBook = {
+  kidName: string;
+  templateId: string;
+  pages: AssembledBookPage[];
+};
