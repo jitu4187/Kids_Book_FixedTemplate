@@ -1,0 +1,48 @@
+// Prisma data model for storing personalization inputs and generated assets.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model ChildProfile {
+  id             String        @id @default(cuid())
+  firstName      String
+  age            Int?
+  guardianEmail  String        @unique
+  dreamJob       String?
+  favoriteThings String?       // JSON string until we move to Postgres
+  specialNotes   String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  books          BookProject[]
+}
+
+model BookProject {
+  id                   String          @id @default(cuid())
+  title                String
+  templateId           String
+  status               String          @default("DRAFT")
+  personalizationNotes String?
+  scenes               String?         // JSON string describing generated scenes
+  childId              String
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  child                ChildProfile    @relation(fields: [childId], references: [id])
+  assets               GeneratedAsset[]
+}
+
+model GeneratedAsset {
+  id        String     @id @default(cuid())
+  type      String     @default("IMAGE")
+  sceneId   String
+  url       String?
+  prompt    String?
+  bookId    String
+  createdAt DateTime   @default(now())
+  book      BookProject @relation(fields: [bookId], references: [id])
+}
