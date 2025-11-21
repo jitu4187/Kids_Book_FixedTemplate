@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import type { BookProjectDraft } from "@/types/book";
 
 export async function GET() {
-  const drafts = await prisma.bookProject.findMany({
+  const drafts = await prisma.story.findMany({
     orderBy: { updatedAt: "desc" },
     take: 10,
     include: {
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     },
   });
 
-  const draft = await prisma.bookProject.create({
+  const draft = await prisma.story.create({
     data: {
       title: `Personalized ${templateId}`,
       templateId,

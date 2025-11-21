@@ -39,55 +39,62 @@ export async function POST(request: Request) {
       assets: payload.generatedImages,
     });
 
-    const assembly: AssembledBook = {
-      kidName,
-      templateId,
-      pages: assembledPages,
-    };
-
-    const child = await prisma.childProfile.upsert({
-      where: { guardianEmail },
-      update: {
-        firstName: kidName,
-        favoriteThings: JSON.stringify(payload.favoriteThings ?? []),
-      },
-      create: {
-        firstName: kidName,
-        guardianEmail,
-        favoriteThings: JSON.stringify(payload.favoriteThings ?? []),
-      },
-    });
-
-    const book = await prisma.bookProject.create({
-      data: {
-        title: `${kidName}'s ${BOOK_TEMPLATE_MAP[templateId]?.title ?? "Story"}`,
+      const assembly: AssembledBook = {
+        kidName,
         templateId,
-        status: "ASSEMBLED",
-        personalizationNotes: JSON.stringify({
-          uploadedPhotoUrls: payload.uploadedPhotoUrls ?? [],
-        }),
-        scenes: JSON.stringify(assembly.pages),
-        childId: child.id,
-        assets: {
-          create: payload.generatedImages.map((image) => ({
-            type: "IMAGE",
-            sceneId: image.sceneId,
-            url: image.url,
-            prompt: image.prompt,
-          })),
-        },
-      },
-      include: {
-        child: true,
-      },
-    });
+        pages: assembledPages,
+      };
 
-    return NextResponse.json({
-      data: {
-        assembly,
-        bookId: book.id,
-      },
-    });
+      const child = await prisma.childProfile.upsert({
+        where: { guardianEmail },
+        update: {
+          firstName: kidName,
+          favoriteThings: JSON.stringify(payload.favoriteThings ?? []),
+        },
+        create: {
+          firstName: kidName,
+          guardianEmail,
+          favoriteThings: JSON.stringify(payload.favoriteThings ?? []),
+        },
+      });
+
+      const story = await prisma.story.create({
+        data: {
+          title: `${kidName}'s ${BOOK_TEMPLATE_MAP[templateId]?.title ?? "Story"}`,
+          templateId,
+          status: "ASSEMBLED",
+          personalizationNotes: JSON.stringify({
+            uploadedPhotoUrls: payload.uploadedPhotoUrls ?? [],
+          }),
+          scenes: JSON.stringify(assembly.pages),
+          childId: child.id,
+          assets: {
+            create: payload.generatedImages.map((image) => ({
+              type: "IMAGE",
+              sceneId: image.sceneId,
+              url: image.url,
+              prompt: image.prompt,
+            })),
+          },
+          pages: {
+            create: assembly.pages.map((page, index) => ({
+              pageNumber: page.pageNumber ?? index + 1,
+              text: page.text,
+              illustration: page.illustration ?? page.imageUrl ?? null,
+            })),
+          },
+        },
+        include: {
+          child: true,
+        },
+      });
+
+      return NextResponse.json({
+        data: {
+          assembly,
+          storyId: story.id,
+        },
+      });
   } catch (error) {
     console.error("[assemble-book]", error);
     return NextResponse.json({ error: "Failed to assemble book." }, { status: 500 });

@@ -62,8 +62,10 @@ export type GeneratedImageAsset = {
 
 export type AssembledBookPage = {
   id: string;
+  pageNumber: number;
   text: string;
   imageUrl: string;
+  illustration?: string;
   prompt?: string;
 };
 

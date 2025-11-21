@@ -10,19 +10,19 @@ datasource db {
 }
 
 model ChildProfile {
-  id             String        @id @default(cuid())
+  id             String   @id @default(cuid())
   firstName      String
   age            Int?
-  guardianEmail  String        @unique
+  guardianEmail  String   @unique
   dreamJob       String?
-  favoriteThings String?       // JSON string until we move to Postgres
+  favoriteThings String?  // JSON string until we move to Postgres
   specialNotes   String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  books          BookProject[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  stories        Story[]
 }
 
-model BookProject {
+model Story {
   id                   String          @id @default(cuid())
   title                String
   templateId           String
@@ -34,15 +34,25 @@ model BookProject {
   updatedAt            DateTime        @updatedAt
   child                ChildProfile    @relation(fields: [childId], references: [id])
   assets               GeneratedAsset[]
+  pages                Page[]
+}
+
+model Page {
+  id            String @id @default(cuid())
+  storyId       String
+  story         Story  @relation(fields: [storyId], references: [id])
+  pageNumber    Int
+  text          String
+  illustration  String?
 }
 
 model GeneratedAsset {
-  id        String     @id @default(cuid())
-  type      String     @default("IMAGE")
+  id        String   @id @default(cuid())
+  type      String   @default("IMAGE")
   sceneId   String
   url       String?
   prompt    String?
-  bookId    String
-  createdAt DateTime   @default(now())
-  book      BookProject @relation(fields: [bookId], references: [id])
+  storyId   String
+  createdAt DateTime @default(now())
+  story     Story    @relation(fields: [storyId], references: [id])
 }

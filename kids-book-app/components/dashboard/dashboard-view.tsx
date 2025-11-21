@@ -7,6 +7,7 @@ import { PagePreviewList } from "@/components/book/page-preview-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { generateIllustration } from "@/lib/illustrations";
 import type { AssembledBookPage, BookTemplate, GeneratedImageAsset } from "@/types/book";
 
 type FlowState = "idle" | "uploading" | "generating" | "assembling" | "pdf" | "complete";
@@ -34,8 +35,17 @@ export function DashboardView({ templates }: DashboardViewProps) {
   const [generatedImages, setGeneratedImages] = useState<GeneratedImageAsset[]>([]);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [bookId, setBookId] = useState<string | null>(null);
+  const [storyId, setStoryId] = useState<string | null>(null);
   const [uploadedPhotoUrls, setUploadedPhotoUrls] = useState<string[]>([]);
+  const [pageGenerationState, setPageGenerationState] = useState<Record<string, boolean>>({});
+  const [pageGenerationErrors, setPageGenerationErrors] = useState<Record<string, string | null>>({});
+  const [localStoryId] = useState(() => {
+    if (typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.randomUUID === "function") {
+      return globalThis.crypto.randomUUID();
+    }
+    return Math.random().toString(36).slice(2);
+  });
+  const activeStoryId = storyId ?? localStoryId;
 
   const selectedTemplate = useMemo(
     () => templates.find((template) => template.id === templateId) ?? templates[0],
@@ -74,8 +84,10 @@ export function DashboardView({ templates }: DashboardViewProps) {
     setPdfUrl(null);
     setPages([]);
     setGeneratedImages([]);
-    setBookId(null);
+    setStoryId(null);
     setUploadedPhotoUrls([]);
+    setPageGenerationState({});
+    setPageGenerationErrors({});
 
     if (!photoFiles || photoFiles.length === 0) {
       setError("Please attach between 1 and 3 photos.");
@@ -151,7 +163,7 @@ export function DashboardView({ templates }: DashboardViewProps) {
       }
       const assemblyPages: AssembledBookPage[] = assembleJson.data?.assembly?.pages ?? [];
       setPages(assemblyPages);
-      setBookId(assembleJson.data?.bookId ?? null);
+      setStoryId(assembleJson.data?.storyId ?? null);
 
       setFlowState("pdf");
       const pdfResponse = await fetch("/api/generate-pdf", {
@@ -159,7 +171,7 @@ export function DashboardView({ templates }: DashboardViewProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           templateId,
-          bookId: assembleJson.data?.bookId,
+          storyId: assembleJson.data?.storyId,
           child: {
             firstName: kidName,
             favoriteThings: favoriteThingsList,
@@ -178,6 +190,40 @@ export function DashboardView({ templates }: DashboardViewProps) {
         caughtError instanceof Error ? caughtError.message : "Something went wrong. Please try again.";
       setError(message);
       setFlowState("idle");
+    }
+  }
+
+  async function handleGenerateIllustrationForPage(page: AssembledBookPage) {
+    const fallbackPrompt = `Soft watercolor illustration for page ${page.pageNumber} of ${
+      kidName || "our hero"
+    }'s story.`;
+    const promptBase = page.prompt?.trim() || fallbackPrompt;
+    const fullPrompt = `${promptBase} Featuring ${kidName || "the child"} with gentle lighting and cozy details.`;
+    const targetPageNumber =
+      page.pageNumber || pages.findIndex((candidate) => candidate.id === page.id) + 1 || 1;
+
+    setPageGenerationErrors((prev) => ({ ...prev, [page.id]: null }));
+    setPageGenerationState((prev) => ({ ...prev, [page.id]: true }));
+
+    try {
+      const response = await generateIllustration(fullPrompt, targetPageNumber, activeStoryId);
+      if (!response.imageUrl || response.error) {
+        throw new Error(response.message ?? "Failed to generate illustration.");
+      }
+
+      setPages((prevPages) =>
+        prevPages.map((candidate) =>
+          candidate.id === page.id
+            ? { ...candidate, illustration: response.imageUrl, imageUrl: response.imageUrl }
+            : candidate
+        )
+      );
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof Error ? caughtError.message : "Unable to generate illustration.";
+      setPageGenerationErrors((prev) => ({ ...prev, [page.id]: message }));
+    } finally {
+      setPageGenerationState((prev) => ({ ...prev, [page.id]: false }));
     }
   }
 
@@ -277,12 +323,12 @@ export function DashboardView({ templates }: DashboardViewProps) {
                   </div>
                 );
               })}
-              {pdfUrl && (
-                <a href={pdfUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-primary">
-                  Download latest PDF
-                </a>
-              )}
-              {bookId && <p className="text-xs text-muted-foreground">Book record ID: {bookId}</p>}
+                {pdfUrl && (
+                  <a href={pdfUrl} target="_blank" rel="noreferrer" className="text-sm font-semibold text-primary">
+                    Download latest PDF
+                  </a>
+                )}
+                {storyId && <p className="text-xs text-muted-foreground">Story record ID: {storyId}</p>}
             </CardContent>
           </Card>
 
@@ -294,8 +340,8 @@ export function DashboardView({ templates }: DashboardViewProps) {
             <CardContent>
               {generatedImages.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No images yet. Run the flow to see renders.</p>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
                     {generatedImages.slice(0, 6).map((image) => (
                       <div key={image.id} className="rounded-lg border p-2">
                         <div className="aspect-video overflow-hidden rounded bg-muted">
@@ -311,14 +357,14 @@ export function DashboardView({ templates }: DashboardViewProps) {
                         <p className="text-[11px] text-muted-foreground">{image.prompt}</p>
                       </div>
                     ))}
-                </div>
-              )}
+                  </div>
+                )}
             </CardContent>
           </Card>
         </div>
       </div>
 
-      <section className="space-y-4">
+        <section className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-primary">Page preview</p>
@@ -328,8 +374,13 @@ export function DashboardView({ templates }: DashboardViewProps) {
               Pages swap in {(kidName || "your kid")}&apos;s name + art.
             </p>
           </div>
-        <PagePreviewList pages={pages} />
-      </section>
+          <PagePreviewList
+            pages={pages}
+            onGenerateIllustration={handleGenerateIllustrationForPage}
+            generatingMap={pageGenerationState}
+            generationErrors={pageGenerationErrors}
+          />
+        </section>
     </div>
   );
 }

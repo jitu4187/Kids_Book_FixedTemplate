@@ -33,8 +33,10 @@ export function compileAssembledPages({
 
     return {
       id: page.id,
+      pageNumber: index + 1,
       text: replaceTokens(page.text, kidName, imageUrl || kidName),
       imageUrl,
+      illustration: imageUrl || undefined,
       prompt: assetMatch?.prompt,
     };
   });

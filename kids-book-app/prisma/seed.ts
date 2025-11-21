@@ -17,7 +17,7 @@ async function main() {
     },
   });
 
-  await prisma.bookProject.upsert({
+  await prisma.story.upsert({
     where: { id: "demo-book-project" },
     update: {},
     create: {
