@@ -11,7 +11,7 @@ type GeneratePdfRequest = {
     dreamJob?: string;
     favoriteThings?: string[];
   };
-  bookId?: string;
+  storyId?: string;
 };
 
 async function streamToBuffer(stream: AsyncIterable<Uint8Array>) {
@@ -39,26 +39,26 @@ export async function POST(request: Request) {
 
     const pdfBuffer = await streamToBuffer(pdfStream);
 
-    const { publicUrl } = await saveBufferToBucket("pdfs", pdfBuffer, {
-      extension: ".pdf",
-      filenamePrefix: `${child.firstName.toLowerCase()}-${templateId}`,
-    });
-
-    if (payload.bookId) {
-      await prisma.bookProject.update({
-        where: { id: payload.bookId },
-        data: { status: "PDF_READY" },
+      const { publicUrl } = await saveBufferToBucket("pdfs", pdfBuffer, {
+        extension: ".pdf",
+        filenamePrefix: `${child.firstName.toLowerCase()}-${templateId}`,
       });
 
-      await prisma.generatedAsset.create({
-        data: {
-          type: "PDF",
-          sceneId: "book",
-          url: publicUrl,
-          bookId: payload.bookId,
-        },
-      });
-    }
+      if (payload.storyId) {
+        await prisma.story.update({
+          where: { id: payload.storyId },
+          data: { status: "PDF_READY" },
+        });
+
+        await prisma.generatedAsset.create({
+          data: {
+            type: "PDF",
+            sceneId: "book",
+            url: publicUrl,
+            storyId: payload.storyId,
+          },
+        });
+      }
 
     return NextResponse.json({
       data: {
